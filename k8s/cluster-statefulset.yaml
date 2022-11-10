@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: neo4j-cluster
+  labels:
+    app: neo4j-cluster
+spec:
+  serviceName: cluster-service-discovery
+  replicas: 3
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app:  neo4j-cluster
+  template:
+    metadata:
+      labels:
+        app: neo4j-cluster
+    spec:
+      containers:
+        - name: neo4j-cluster
+          image: neo4j:5.1.0-enterprise
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: SERVICE_NEO4J_ADMIN
+            value: "neo4j-cluster-admin.neo4j.svc.cluster.local"
+          - name: SERVICE_NEO4J_INTERNALS
+            value: "neo4j-cluster-internal.neo4j.svc.cluster.local"
+          - name: SERVICE_NEO4J_DISCOVERY
+            value: "neo4j-cluster-discovery.neo4j.svc.cluster.local"
+          - name: SERVICE_NEO4J
+            value: "neo4j-cluster.neo4j.svc.cluster.local"
+          envFrom:
+            - configMapRef:
+                name: cluster-env
+            - secretRef:
+                name: neo4j-cluster-auth
+#          readinessProbe:
+#            failureThreshold: 20
+#            periodSeconds: 5
+#            successThreshold: 1
+#            tcpSocket:
+#              port: 5000
+#            timeoutSeconds: 10
+#          livenessProbe:
+#            tcpSocket:
+#              port: 7687
+#            failureThreshold: 40
+#            periodSeconds: 5
+#            successThreshold: 1
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+            requests:
+              cpu: "500m"
+              memory: 1Gi
+          securityContext:
+            runAsGroup: 7474
+            runAsNonRoot: true
+            runAsUser: 7474
+          ports:
+            - containerPort: 7474
+              name: tcp-http
+            - containerPort: 7687
+              name: tcp-bolt
+            - containerPort: 7473
+              name: tcp-https
+            - containerPort: 6362
+              name: tcp-backup
+            - name: tcp-boltrouting
+              containerPort: 7688
+              protocol: TCP
+            - name: discovery
+              containerPort: 5000
+              protocol: TCP
+            - name: tcp-raft
+              containerPort: 7000
+              protocol: TCP
+            - name: tcp-tx
+              containerPort: 6000
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /config/neo4j.conf
+              name: neo4j-conf
+            - mountPath: /backups
+              name: data
+              subPathExpr: backups
+            - mountPath: /data
+              name: data
+              subPathExpr: data
+            - mountPath: /import
+              name: data
+              subPathExpr: import
+            - mountPath: /licenses
+              name: data
+              subPathExpr: licenses
+            - mountPath: /logs
+              name: data
+              subPathExpr: logs/$(POD_NAME)
+            - mountPath: /metrics
+              name: data
+              subPathExpr: metrics/$(POD_NAME)
+            - mountPath: /logging
+              name: logging
+      restartPolicy: Always
+      serviceAccountName:  neo4j-cluster
+      securityContext:
+        fsGroup: 7474
+        fsGroupChangePolicy: Always
+        runAsGroup: 7474
+        runAsNonRoot: true
+        runAsUser: 7474
+      volumes:
+        - name: neo4j-conf
+          projected:
+            defaultMode: 0440
+            sources:
+              - configMap:
+                  name: cluster-default-config
+        - name: logging
+          configMap:
+            name: cluster-logging
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+        volumeMode: Filesystem

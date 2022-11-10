@@ -1,0 +1,9 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+resources:
+  - cluster-service.yaml
+  - cluster-statefulset.yaml
+  - cluster-auth.yaml
+  - cluster-configmap-5-0.yaml
+  - cluster-rbac.yaml
+namespace: neo4j

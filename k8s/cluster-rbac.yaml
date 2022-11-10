@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: neo4j-cluster
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: neo4j-cluster-service-reader
+
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["services", "endpoints"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: neo4j-cluster-service-binding
+
+subjects:
+  - kind: ServiceAccount
+    name:  neo4j-cluster
+roleRef:
+  # "roleRef" specifies the binding to a Role / ClusterRole
+  kind: Role # this must be Role or ClusterRole
+  name:  neo4j-cluster-service-reader
+  apiGroup: rbac.authorization.k8s.io

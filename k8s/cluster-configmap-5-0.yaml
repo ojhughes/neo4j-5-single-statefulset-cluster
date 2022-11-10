@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: cluster-default-config
+data:
+  server.directories.data: "/data"
+  server.directories.plugins: "/plugins"
+  server.directories.logs: "/logs"
+  server.directories.licenses: "/licenses"
+  server.directories.metrics: "/metrics"
+  server.directories.import: "/import"
+  server.default_listen_address: "0.0.0.0"
+  server.default_advertised_address: "$(bash -c 'echo ${SERVICE_NEO4J}')"
+  server.bolt.advertised_address: "$(bash -c 'echo ${POD_IP//./-}.${SERVICE_NEO4J_INTERNALS}:7687)"
+  server.discovery.advertised_address: "$(bash -c 'echo ${POD_IP//./-}.${SERVICE_NEO4J_DISCOVERY}:5000')"
+  server.discovery.listen_address: "0.0.0.0:5000"
+  dbms.cluster.discovery.type: SRV
+  dbms.cluster.discovery.endpoints: "$(bash -c 'echo _discovery._tcp.${SERVICE_NEO4J_DISCOVERY}:0')"
+  dbms.cluster.minimum_initial_system_primaries_count: "3"
+  initial.dbms.default_primaries_count: "3"
+  dbms.security.cluster_status_auth_enabled: "false"
+  server.cluster.advertised_address: "$(bash -c 'echo ${POD_IP//./-}.${SERVICE_NEO4J_INTERNALS}:6000')"
+  server.cluster.listen_address: "0.0.0.0:6000"
+  server.cluster.raft.advertised_address: "$(bash -c 'echo ${POD_IP//./-}.${SERVICE_NEO4J_INTERNALS}:7000')"
+  server.cluster.raft.listen_address: "0.0.0.0:7000"
+  server.routing.advertised_address: "$(bash -c 'echo ${POD_IP//./-}.${SERVICE_NEO4J_INTERNALS}:7688')"
+  server.routing.listen_address: "0.0.0.0:7688"
+  server.groups: "$(bash -c 'echo pod-${POD_NAME},cores')"
+  dbms.routing.enabled: "true"
+  server.logs.config: "/logging/server-logs.xml"
+  dbms.cluster.discovery.log_level: "DEBUG"
+  dbms.routing.default_router: "SERVER"
+  dbms.routing.client_side.enforce_for_domains: "*.cluster.local"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-env
+data:
+  NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+  NEO4J_EDITION: "ENTERPRISE_K8S"
+  NEO4J_CONF: "/config/"
+  K8S_NEO4J_NAME: "neo4j-cluster"
+  EXTENDED_CONF: "yes"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-logging
+data:
+  server-logs.xml: |-
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!--
+    
+        Copyright (c) "Neo4j"
+        Neo4j Sweden AB [http://neo4j.com]
+        This file is a commercial add-on to Neo4j Enterprise Edition.
+    
+    -->
+    <!--
+        This is a log4j 2 configuration file.
+    
+        It is highly recommended to keep the original "debug.log" as is, to make sure enough data is captured in case
+        of errors in a format that neo4j developers can work with.
+    
+        All configuration values can be queried with the lookup prefix "config:". You can for example, resolve
+        the path to your neo4j home directory with ${config:dbms.directories.neo4j_home}.
+    
+        Please consult https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions and
+        available configuration options.
+    -->
+    <Configuration status="ERROR" monitorInterval="30" packages="org.neo4j.logging.log4j">
+        <Appenders>
+            <!-- Default debug.log, please keep -->
+            <RollingRandomAccessFile name="DebugLog" fileName="${config:server.directories.logs}/debug.log"
+                                     filePattern="$${config:server.directories.logs}/debug.log.%02i">
+                <Neo4jDebugLogLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p [%c{1.}] %m%n"/>
+                <Policies>
+                    <SizeBasedTriggeringPolicy size="20 MB"/>
+                </Policies>
+                <DefaultRolloverStrategy fileIndex="min" max="7"/>
+            </RollingRandomAccessFile>
+    
+            <RollingRandomAccessFile name="HttpLog" fileName="${config:server.directories.logs}/http.log"
+                                     filePattern="$${config:server.directories.logs}/http.log.%02i">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p %m%n"/>
+                <Policies>
+                    <SizeBasedTriggeringPolicy size="20 MB"/>
+                </Policies>
+                <DefaultRolloverStrategy fileIndex="min" max="5"/>
+            </RollingRandomAccessFile>
+    
+            <RollingRandomAccessFile name="QueryLog" fileName="${config:server.directories.logs}/query.log"
+                                     filePattern="$${config:server.directories.logs}/query.log.%02i">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p %m%n"/>
+                <Policies>
+                    <SizeBasedTriggeringPolicy size="20 MB"/>
+                </Policies>
+                <DefaultRolloverStrategy fileIndex="min" max="7"/>
+            </RollingRandomAccessFile>
+    
+            <RollingRandomAccessFile name="SecurityLog" fileName="${config:server.directories.logs}/security.log"
+                                     filePattern="$${config:server.directories.logs}/security.log.%02i">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSSZ}{GMT+0} %-5p %m%n"/>
+                <Policies>
+                    <SizeBasedTriggeringPolicy size="20 MB"/>
+                </Policies>
+                <DefaultRolloverStrategy fileIndex="min" max="7"/>
+            </RollingRandomAccessFile>
+        </Appenders>
+    
+        <Loggers>
+            <!-- Log levels. One of DEBUG, INFO, WARN, ERROR or OFF -->
+    
+            <!-- The debug log is used as the root logger to catch everything -->
+            <Root level="DEBUG">
+                <AppenderRef ref="DebugLog"/> <!-- Keep this -->
+            </Root>
+    
+            <!-- The query log, must be named "QueryLogger" -->
+            <Logger name="QueryLogger" level="INFO" additivity="false">
+                <AppenderRef ref="QueryLog"/>
+            </Logger>
+    
+            <!-- The http request log, must be named "HttpLogger" -->
+            <Logger name="HttpLogger" level="INFO" additivity="false">
+                <AppenderRef ref="HttpLog"/>
+            </Logger>
+    
+            <!-- The security log, must be named "SecurityLogger" -->
+            <Logger name="SecurityLogger" level="INFO" additivity="false">
+                <AppenderRef ref="SecurityLog"/>
+            </Logger>
+        </Loggers>
+    </Configuration>
