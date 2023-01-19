@@ -6,8 +6,8 @@ metadata:
     app: neo4j-cluster
 spec:
   serviceName: cluster-service-discovery
-  replicas: 3
-  podManagementPolicy: OrderedReady
+  replicas: 4
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app:  neo4j-cluster
@@ -114,8 +114,6 @@ spec:
             - mountPath: /metrics
               name: data
               subPathExpr: metrics/$(POD_NAME)
-            - mountPath: /logging
-              name: logging
       restartPolicy: Always
       serviceAccountName:  neo4j-cluster
       securityContext:

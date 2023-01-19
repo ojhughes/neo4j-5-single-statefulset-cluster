@@ -6,4 +6,5 @@ resources:
   - cluster-auth.yaml
   - cluster-configmap-5-0.yaml
   - cluster-rbac.yaml
+  - cluster-namespace.yaml
 namespace: neo4j
